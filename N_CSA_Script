@@ -1,0 +1,89 @@
+clear; clc;
+addpath('placefigure');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                          ORBITAL PARAMETERS                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+mue    = 398600;
+Re     = 6378;
+Rs     = 500;
+Rp     = Re+Rs;
+n      = sqrt(mue/(Rp^3));
+thtd2  = n^2;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                           MOMENT OF INERTIA                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Js     = diag([0.015; 0.017; 0.020]);               % Follower Spacecraft %
+Jw     = diag([1e-5, 1e-5, 1e-5, 1e-5]);            % Reaction Wheels     %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                       REACTION WHEEL PARAMETERS                         %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Ra     = 0.6;                           % Coil Resistance
+Km1    = 0.0082;                        % Motor Constant - Wheel 1
+Km2    = 0.0080;                        % Motor Constant - Wheel 2
+Km3    = 0.0071;                        % Motor Constant - Wheel 3
+Km4    = 0.0080;                        % Motor Constant - Wheel 4
+dp_x   =  1.3;                          % Positive Deadzone - Wheel 1
+dn_x   = -1.1;                          % Negative Deadzone - Wheel 1     
+dn_y   = -1.15;                         % Positive Deadzone - Wheel 2
+dp_y   =  1.2;                          % Negative Deadzone - Wheel 2
+dp_z   =  1.2;                          % Positive Deadzone - Wheel 3
+dn_z   = -1.1;                          % Negative Deadzone - Wheel 3
+dp_o   =  1.1;                          % Positive Deadzone - Wheel 4
+dn_o   = -1.15;                         % Negative Deadzone - Wheel 4
+V_max  =  4.50;                         % Wheel - Maximum Voltage
+wsd    = 0.01;                          % Lowest speed
+alpha  = 45*pi/180;                     % In-plane angle
+beta   = 45*pi/180;                     % Out-of-plane angle
+
+CASE   = 1;     % 1 = Orthogonal, 2 = Standard four Wheels, 3 = Pyramid
+
+Ap     = [Ra; Km1; Km2; Km3; Km4; dp_x; dn_x; dp_y; dn_y; dp_z; dn_z; ...
+          dp_o; dn_o; V_max; wsd; alpha; beta; CASE];
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                             CONTROL GAINS                               %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+p1    = 1;
+p2    = 1;
+p3    = 1;
+b1    = 300;
+b2    = 0.001;
+k1    = 0.06;
+bh0   = 0.0;
+lambda = 1;
+delta  = 1e-3;
+
+Cg   = [p1; p2; p3; b1; b2; k1; delta; lambda; thtd2];
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                           INITIAL CONDITIONS                            %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+roll0 = 50*pi/180;
+pitch0 = 20*pi/180;
+yaw0 = -30*pi/180;
+q0 = angle2quat(yaw0,pitch0,roll0);
+
+q10 = q0(2); %0.4;
+q20 = q0(3); %0.4;
+q30 = q0(4); %0.4;
+q40 = q0(1); %sqrt(1 - q10^2 - q20^2 - q30^2);
+
+w10 = 0.000;
+w20 = 0.000;
+w30 = 0.000;
+
+X0  = [ q10; q20; q30; q40; w10; w20; w30; 0; 0; 0; 0 ];
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                           DESIRED CONDITIONS                            %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+roll0d = 0*pi/180;
+pitch0d = 0*pi/180;
+yaw0d = 0*pi/180;
+q0d = angle2quat(yaw0d,pitch0d,roll0d);
+
+qd   =[q0d(2); q0d(3); q0d(4)]; %[q1d; q2d; q3d]; %from the q0d function (angle2quat)%
+q4d  = q0d(1); %sqrt(1 - (qd'*qd)); %from the q0d function (angle2quat)%
+qD   = [qd; q4d];
+wD   = [0; 0; 0];
+
+sim('N_CSA_Model.mdl',[0 30]);
+save 'results.mat'
+N_CSA_Plotter();
